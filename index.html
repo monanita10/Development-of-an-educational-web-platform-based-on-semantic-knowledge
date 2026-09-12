@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SemantiLearn</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        #toast-container { position:fixed;bottom:2rem;right:2rem;z-index:9999;display:flex;flex-direction:column;gap:.75rem;pointer-events:none; }
+        .toast { pointer-events:all;padding:1rem 1.5rem;border-radius:1rem;font-weight:700;font-size:.875rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 8px 32px rgba(0,0,0,.15);animation:toastIn .35s cubic-bezier(.22,1,.36,1) forwards;max-width:340px;backdrop-filter:blur(12px); }
+        .toast.success { background:#dcfce7;color:#166534;border:1px solid #86efac; }
+        .toast.error   { background:#fee2e2;color:#991b1b;border:1px solid #fca5a5; }
+        .toast.info    { background:#dbeafe;color:#1e3a8a;border:1px solid #93c5fd; }
+        .toast.warning { background:#fef9c3;color:#713f12;border:1px solid #fde68a; }
+        .toast.hide    { animation:toastOut .3s ease forwards; }
+        @keyframes toastIn  { from{opacity:0;transform:translateY(20px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes toastOut { from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(10px)} }
+        @keyframes fadeSlideUp { from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)} }
+
+        #tour-overlay { position:fixed;inset:0;background:rgba(15,23,42,.75);z-index:10000;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center; }
+        #tour-overlay.hidden { display:none; }
+        .tour-card { background:white;border-radius:2rem;padding:2.5rem;max-width:440px;width:calc(100% - 2rem);box-shadow:0 32px 80px rgba(0,0,0,.3);animation:fadeSlideUp .4s ease; }
+        .tour-dot { width:10px;height:10px;border-radius:50%;background:#e2e8f0;transition:background .3s; }
+        .tour-dot.active { background:#2563eb; }
+
+        #search-results-dropdown { position:absolute;top:calc(100% + 8px);left:0;right:0;background:white;border-radius:1.25rem;box-shadow:0 16px 48px rgba(0,0,0,.12);border:1px solid #e2e8f0;z-index:200;overflow:hidden;max-height:280px;overflow-y:auto; }
+        #search-results-dropdown.hidden { display:none; }
+        .search-result-item { padding:.875rem 1.25rem;cursor:pointer;transition:background .15s;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:.75rem; }
+        .search-result-item:hover,.search-result-item:focus { background:#f8fafc;outline:none; }
+        .search-result-item mark { background:#bfdbfe;border-radius:3px;padding:0 2px;color:#1e3a8a; }
+
+        .quiz-result-panel { background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #86efac;border-radius:1.5rem;padding:2rem;text-align:center;animation:fadeSlideUp .4s ease; }
+        .quiz-result-panel.fail { background:linear-gradient(135deg,#fff7ed,#ffedd5);border-color:#fdba74; }
+
+        .graph-legend-dot { width:12px;height:12px;border-radius:50%;display:inline-block; }
+        #graph-tooltip { position:fixed;background:rgba(15,23,42,.9);color:white;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:600;pointer-events:none;z-index:500;display:none;backdrop-filter:blur(8px); }
+
+        .profile-concept-chip { display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:999px;font-size:12px;font-weight:700; }
+
+        *:focus-visible { outline:3px solid #2563eb;outline-offset:2px;border-radius:6px; }
+        .skip-link { position:fixed;top:-100%;left:1rem;background:#2563eb;color:white;padding:.5rem 1rem;border-radius:0 0 .5rem .5rem;font-weight:700;z-index:99999;text-decoration:none;transition:top .2s; }
+        .skip-link:focus { top:0; }
+
+        @keyframes pulseNode { 0%,100%{transform:scale(1)}50%{transform:scale(1.08)} }
+        .node-pulse { animation:pulseNode 2s ease-in-out infinite; }
+    </style>
+</head>
+
+<body class="text-slate-900 overflow-x-hidden zoom-body">
+<a href="#main-content" class="skip-link">Sari la conținut principal</a>
+<div id="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="graph-tooltip"></div>
+
+<!-- ONBOARDING TOUR -->
+<div id="tour-overlay" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+    <div class="tour-card">
+        <div id="tour-step-0">
+            <div class="text-4xl mb-4"></div>
+            <h2 id="tour-title" class="text-2xl font-extrabold text-slate-900 mb-3">Bine ai venit la SemantiLearn!</h2>
+            <p class="text-slate-500 mb-6 leading-relaxed">Platforma educațională bazată pe <strong>reprezentare semantică a cunoașterii</strong>. Îți voi arăta în câțiva pași cum funcționează.</p>
+        </div>
+        <div id="tour-step-1" class="hidden">
+            <div class="text-4xl mb-4"></div>
+            <h2 class="text-2xl font-extrabold text-slate-900 mb-3">Module de Învățare</h2>
+            <p class="text-slate-500 mb-6 leading-relaxed">Parcurge modulele în ordine: <strong>RDF → SPARQL → OWL → LOD</strong>. Fiecare modul se deblochează după finalizarea celui anterior.</p>
+        </div>
+        <div id="tour-step-2" class="hidden">
+            <div class="text-4xl mb-4"></div>
+            <h2 class="text-2xl font-extrabold text-slate-900 mb-3">Harta Ontologică</h2>
+            <p class="text-slate-500 mb-6 leading-relaxed">Vizualizează relațiile semantice dintre concepte pe un <strong>graf interactiv D3</strong>. Nodurile se colorează în funcție de progresul tău.</p>
+        </div>
+        <div id="tour-step-3" class="hidden">
+            <div class="text-4xl mb-4"></div>
+            <h2 class="text-2xl font-extrabold text-slate-900 mb-3">Constructor RDF</h2>
+            <p class="text-slate-500 mb-6 leading-relaxed">Construiește propriile <strong>triplete RDF</strong> (Subiect → Predicat → Obiect) și vizualizează-le live ca graf semantic.</p>
+        </div>
+        <div id="tour-step-4" class="hidden">
+            <div class="text-4xl mb-4"></div>
+            <h2 class="text-2xl font-extrabold text-slate-900 mb-3">Asistent AI</h2>
+            <p class="text-slate-500 mb-6 leading-relaxed"><strong>SemantiBot</strong> îți răspunde la orice întrebare despre Web Semantic, cu exemple de cod și explicații.</p>
+        </div>
+        <div class="flex items-center justify-between mt-2">
+            <div class="flex gap-2" id="tour-dots">
+                <div class="tour-dot active"></div>
+                <div class="tour-dot"></div>
+                <div class="tour-dot"></div>
+                <div class="tour-dot"></div>
+                <div class="tour-dot"></div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="skipTour()" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-slate-600 transition">Sari peste</button>
+                <button id="tour-next-btn" onclick="nextTourStep()" class="px-6 py-2 rounded-xl text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 transition">Înainte →</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="animated-bg"></div>
+
+<aside id="sidebar" class="fixed left-0 top-0 sidebar-glass flex flex-col p-6 z-50 transition-all" role="navigation" aria-label="Meniu principal">
+    <div>
+        <div class="flex items-center space-x-3 mb-10">
+            <div class="bg-blue-600 p-3 rounded-2xl text-white shadow-2xl" aria-hidden="true"><i class="fas fa-brain"></i></div>
+            <div>
+                <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Semanti<span class="text-blue-600">Learn</span></h1>
+                <p class="text-xs text-slate-400 font-semibold">Semantic Web Platform</p>
+            </div>
+        </div>
+        <nav class="space-y-2 mb-6" aria-label="Navigare tabs">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-link w-full flex items-center justify-between p-4 rounded-2xl transition-all font-bold text-slate-500 hover:bg-white/70">
+                <div class="flex items-center gap-3"><i class="fas fa-th-large" aria-hidden="true"></i><span>Dashboard</span></div>
+                <i class="fas fa-chevron-right text-xs opacity-50" aria-hidden="true"></i>
+            </button>
+            <button onclick="switchTab('graph')" id="nav-graph" class="nav-link w-full flex items-center justify-between p-4 rounded-2xl transition-all font-bold text-slate-500 hover:bg-white/70">
+                <div class="flex items-center gap-3"><i class="fas fa-project-diagram" aria-hidden="true"></i><span>Harta Ontologică</span></div>
+                <i class="fas fa-chevron-right text-xs opacity-50" aria-hidden="true"></i>
+            </button>
+            <button onclick="switchTab('builder')" id="nav-builder" class="nav-link w-full flex items-center justify-between p-4 rounded-2xl transition-all font-bold text-slate-500 hover:bg-white/70">
+                <div class="flex items-center gap-3"><i class="fas fa-puzzle-piece" aria-hidden="true"></i><span>Constructor RDF</span></div>
+                <i class="fas fa-chevron-right text-xs opacity-50" aria-hidden="true"></i>
+            </button>
+            <button onclick="switchTab('ai')" id="nav-ai" class="nav-link w-full flex items-center justify-between p-4 rounded-2xl transition-all font-bold text-slate-500 hover:bg-white/70">
+                <div class="flex items-center gap-3"><i class="fas fa-robot" aria-hidden="true"></i><span>Asistent AI</span></div>
+                <i class="fas fa-chevron-right text-xs opacity-50" aria-hidden="true"></i>
+            </button>
+            <button onclick="switchTab('profile')" id="nav-profile" class="nav-link w-full flex items-center justify-between p-4 rounded-2xl transition-all font-bold text-slate-500 hover:bg-white/70">
+                <div class="flex items-center gap-3"><i class="fas fa-user-graduate" aria-hidden="true"></i><span>Profil Semantic</span></div>
+                <i class="fas fa-chevron-right text-xs opacity-50" aria-hidden="true"></i>
+            </button>
+        </nav>
+    </div>
+    <div class="mt-auto space-y-4">
+        <div class="progress-card rounded-[2rem] p-6 text-white text-center">
+            <p class="text-[10px] text-blue-100 font-bold mb-1 uppercase tracking-[0.25em]">Progres General</p>
+            <div class="relative w-32 h-32 mx-auto my-4">
+                <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                    <div id="global-bar" class="bg-blue-600 h-full rounded-full"></div>
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center flex-col">
+                    <span id="global-perc" class="text-3xl font-extrabold" aria-live="polite">0%</span>
+                    <span class="text-[10px] uppercase tracking-widest text-blue-100">completed</span>
+                </div>
+            </div>
+        </div>
+        <button onclick="resetProgress()" class="reset-btn w-full py-4 px-4 rounded-2xl text-xs font-bold text-red-500 border border-red-100 transition-all flex items-center justify-center gap-2 bg-white/60" aria-label="Resetează tot progresul">
+            <i class="fas fa-undo-alt" aria-hidden="true"></i> Resetare Progres
+        </button>
+    </div>
+</aside>
+
+<main id="main-content" class="lg:ml-72 min-h-screen p-6 md:p-12">
+
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="tab-content">
+        <div class="hero-section mb-10 p-10 rounded-[3rem] relative overflow-hidden text-white">
+            <div class="particles" aria-hidden="true"></div>
+            <div class="relative z-10">
+                
+                <div class="max-w-xl">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-blue-100 text-[10px] font-bold uppercase tracking-[0.3em]">
+                        <i class="fas fa-lightbulb text-yellow-300 text-xs" aria-hidden="true"></i> Știai că
+                    </div>
+                    <h2 id="daily-info-title" class="text-2xl md:text-4xl font-extrabold mt-4 leading-tight text-white">Se încarcă...</h2>
+                    <div class="mt-4 flex items-start gap-3 bg-white/10 border border-white/10 rounded-2xl px-4 py-3 backdrop-blur-md shadow-md">
+                        <div class="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-500/20 text-blue-200 flex-shrink-0" aria-hidden="true"><i class="fas fa-brain text-sm"></i></div>
+                        <p id="daily-info-text" class="text-blue-100 text-sm leading-relaxed">Se încarcă...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search -->
+        <div class="relative mb-8" role="search" aria-label="Căutare semantică">
+            <input type="search" id="semantic-search"
+                placeholder="Caută concepte semantic... (ex: inferență, triplete, URI, ontologie)"
+                class="w-full bg-white/80 backdrop-blur-xl border border-white/40 rounded-2xl pl-12 pr-6 py-4 outline-none shadow-sm focus:ring-4 focus:ring-blue-100 text-slate-700 transition-all"
+                autocomplete="off" aria-label="Caută concepte în module" oninput="handleSearch(this.value)" onblur="setTimeout(()=>closeSearch(),200)">
+            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true"></i>
+            <div id="search-results-dropdown" class="hidden" role="listbox" aria-label="Rezultate căutare"></div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between mb-8 gap-4">
+            <h2 class="text-4xl font-extrabold text-slate-900 tracking-tight">Module pentru învățare</h2>
+            <div class="flex bg-white/70 backdrop-blur-xl rounded-2xl p-1 shadow-sm border border-white/30" role="group" aria-label="Filtru module">
+                <button onclick="filterModules('all')" class="filter-btn px-6 py-3 rounded-xl text-sm font-bold bg-blue-600 text-white transition-all">Toate</button>
+                <button onclick="filterModules('done')" class="filter-btn px-6 py-3 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 transition-all">Finalizate</button>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8" id="module-list" aria-live="polite" aria-label="Lista de module"></div>
+    </div>
+
+    <!-- GRAPH îmbunătățit -->
+    <div id="tab-graph" class="tab-content hidden">
+        <h2 class="text-4xl font-extrabold mb-3 tracking-tight">Harta Ontologică Semantică</h2>
+        <p class="text-slate-500 mb-4">Relațiile semantice dintre concepte și starea cognitivă a cunoașterii tale.</p>
+
+        <div class="flex flex-wrap gap-4 mb-5 text-sm font-semibold text-slate-600" role="legend" aria-label="Legendă hartă">
+            <div class="flex items-center gap-2"><span class="graph-legend-dot" style="background:#1e293b"></span>Nod central</div>
+            <div class="flex items-center gap-2"><span class="graph-legend-dot" style="background:#10b981"></span>Finalizat</div>
+            <div class="flex items-center gap-2"><span class="graph-legend-dot" style="background:#2563eb"></span>Disponibil</div>
+            <div class="flex items-center gap-2"><span class="graph-legend-dot" style="background:#e2e8f0;border:1px solid #cbd5e1"></span>Blocat</div>
+            <div class="flex items-center gap-2"><span class="graph-legend-dot" style="background:#f59e0b"></span>Sub-concept</div>
+        </div>
+
+        <div class="flex gap-3 mb-5 flex-wrap">
+            <button onclick="graphZoomIn()" class="px-4 py-2 bg-white rounded-xl border border-slate-200 font-bold text-sm hover:bg-slate-50 transition" aria-label="Zoom in"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Zoom In</button>
+            <button onclick="graphZoomOut()" class="px-4 py-2 bg-white rounded-xl border border-slate-200 font-bold text-sm hover:bg-slate-50 transition" aria-label="Zoom out"><i class="fas fa-minus mr-1" aria-hidden="true"></i>Zoom Out</button>
+            <button onclick="graphReset()" class="px-4 py-2 bg-white rounded-xl border border-slate-200 font-bold text-sm hover:bg-slate-50 transition" aria-label="Reset zoom"><i class="fas fa-compress mr-1" aria-hidden="true"></i>Reset</button>
+            <button onclick="toggleSubconcepts()" id="subconcept-toggle" class="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition" aria-pressed="true"><i class="fas fa-sitemap mr-1" aria-hidden="true"></i>Sub-concepte: ON</button>
+        </div>
+
+        <div class="bg-white rounded-[3rem] border border-slate-200 h-[600px] relative shadow-inner overflow-hidden" id="graph-container" role="img" aria-label="Graf semantic interactiv">
+            <div id="d3-canvas"></div>
+        </div>
+    </div>
+
+    <!-- CONSTRUCTOR RDF -->
+    <div id="tab-builder" class="tab-content hidden">
+        <h2 class="text-4xl font-extrabold mb-3 tracking-tight">Constructor RDF Interactiv</h2>
+        <p class="text-slate-500 mb-8">Construiește triplete <strong>Subiect → Predicat → Obiect</strong> și vizualizează-le ca graf semantic live.</p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="lg:col-span-1 bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm">
+                <h3 class="font-extrabold text-slate-900 mb-5 text-lg">Adaugă triplet RDF</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="rdf-subject" class="block text-xs font-bold text-blue-600 uppercase tracking-widest mb-2">
+                            <span class="inline-block w-5 h-5 bg-blue-600 text-white rounded-full text-center leading-5 text-xs mr-1" aria-hidden="true">S</span>Subiect
+                        </label>
+                        <input id="rdf-subject" type="text" placeholder="ex: dbr:Romania" list="rdf-sug-s"
+                            class="w-full border-2 border-blue-100 rounded-xl px-4 py-3 text-sm font-semibold focus:border-blue-400 outline-none transition"
+                            aria-label="Subiectul tripletului RDF" autocomplete="off">
+                        <datalist id="rdf-sug-s">
+                            <option value="dbr:Romania"><option value="dbr:Web_Semantic"><option value="ex:Student">
+                            <option value="ex:Ontologie"><option value="schema:Person"><option value="foaf:Agent">
+                        </datalist>
+                    </div>
+                    <div>
+                        <label for="rdf-predicate" class="block text-xs font-bold text-green-600 uppercase tracking-widest mb-2">
+                            <span class="inline-block w-5 h-5 bg-green-600 text-white rounded-full text-center leading-5 text-xs mr-1" aria-hidden="true">P</span>Predicat
+                        </label>
+                        <input id="rdf-predicate" type="text" placeholder="ex: rdf:type" list="rdf-sug-p"
+                            class="w-full border-2 border-green-100 rounded-xl px-4 py-3 text-sm font-semibold focus:border-green-400 outline-none transition"
+                            aria-label="Predicatul tripletului RDF" autocomplete="off">
+                        <datalist id="rdf-sug-p">
+                            <option value="rdf:type"><option value="rdfs:subClassOf"><option value="rdfs:label">
+                            <option value="owl:sameAs"><option value="foaf:knows"><option value="schema:name">
+                            <option value="dbo:capital"><option value="dbo:language">
+                        </datalist>
+                    </div>
+                    <div>
+                        <label for="rdf-object" class="block text-xs font-bold text-amber-600 uppercase tracking-widest mb-2">
+                            <span class="inline-block w-5 h-5 bg-amber-500 text-white rounded-full text-center leading-5 text-xs mr-1" aria-hidden="true">O</span>Obiect
+                        </label>
+                        <input id="rdf-object" type="text" placeholder="ex: dbo:Country" list="rdf-sug-o"
+                            class="w-full border-2 border-amber-100 rounded-xl px-4 py-3 text-sm font-semibold focus:border-amber-400 outline-none transition"
+                            aria-label="Obiectul tripletului RDF" autocomplete="off">
+                        <datalist id="rdf-sug-o">
+                            <option value="dbo:Country"><option value="dbo:Language"><option value="ex:Clasa">
+                            <option value="owl:Class"><option value="rdfs:Resource">
+                        </datalist>
+                    </div>
+                    <button onclick="addTriplet()" class="w-full bg-slate-900 text-white py-3 rounded-xl font-extrabold hover:bg-blue-600 transition-all text-sm" aria-label="Adaugă tripletul în graf">
+                        <i class="fas fa-plus mr-2" aria-hidden="true"></i>Adaugă în Graf
+                    </button>
+                    <div class="border-t border-slate-100 pt-4 space-y-2">
+                        <button onclick="loadExample('basic')" class="w-full py-2 px-4 rounded-xl text-xs font-bold text-slate-500 border border-slate-200 hover:bg-slate-50 transition">📌 Exemplu: România este țară</button>
+                        <button onclick="loadExample('foaf')"  class="w-full py-2 px-4 rounded-xl text-xs font-bold text-slate-500 border border-slate-200 hover:bg-slate-50 transition">👥 Exemplu: Graf FOAF</button>
+                        <button onclick="loadExample('owl')"   class="w-full py-2 px-4 rounded-xl text-xs font-bold text-slate-500 border border-slate-200 hover:bg-slate-50 transition">🔮 Exemplu: Ontologie OWL</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-extrabold text-slate-900 text-lg">Graf RDF Live</h3>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="clearBuilder()" class="px-3 py-1.5 text-xs font-bold text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition" aria-label="Șterge toate tripletele"><i class="fas fa-trash mr-1" aria-hidden="true"></i>Golește</button>
+                        <button onclick="exportTurtle()" class="px-3 py-1.5 text-xs font-bold text-green-600 border border-green-200 rounded-lg hover:bg-green-50 transition" aria-label="Exportă Turtle"><i class="fas fa-download mr-1" aria-hidden="true"></i>Export .ttl</button>
+                        <button onclick="exportJsonLD()" class="px-3 py-1.5 text-xs font-bold text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition" aria-label="Exportă JSON-LD"><i class="fas fa-code mr-1" aria-hidden="true"></i>JSON-LD</button>
+                    </div>
+                </div>
+                <div id="builder-d3-container" class="flex-1 relative rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden" style="min-height:320px;" role="img" aria-label="Graful RDF construit">
+                    <div id="builder-empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 pointer-events-none">
+                        <i class="fas fa-project-diagram text-5xl mb-4 opacity-30" aria-hidden="true"></i>
+                        <p class="font-bold text-sm">Adaugă primul triplet din stânga</p>
+                        <p class="text-xs mt-1">Sau alege un exemplu predefinit</p>
+                    </div>
+                    <div id="builder-d3-canvas"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm">
+            <h3 class="font-extrabold text-slate-900 text-lg mb-4">
+                Triplete definite <span id="triplet-count" class="ml-2 text-sm font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">0</span>
+            </h3>
+            <div id="triplet-list" class="flex flex-wrap gap-3 min-h-[40px]" role="list" aria-label="Lista triplete RDF">
+                <p class="text-slate-400 text-sm italic" id="triplet-list-empty">Niciun triplet definit încă.</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 rounded-[2rem] p-6 mt-6">
+            <span class="text-xs font-bold text-green-400 uppercase tracking-widest mb-3 block"><i class="fas fa-code mr-2" aria-hidden="true"></i>Preview Turtle (.ttl)</span>
+            <pre id="turtle-preview" class="text-green-300 text-xs font-mono leading-relaxed overflow-x-auto" aria-live="polite"># Adaugă triplete pentru a vedea codul Turtle</pre>
+        </div>
+    </div>
+
+    <!-- AI -->
+    <div id="tab-ai" class="tab-content hidden h-[calc(100vh-120px)]">
+        <div class="ai-panel rounded-[3rem] border border-white/30 h-full flex flex-col overflow-hidden">
+            <div class="p-6 border-b border-slate-200/60 bg-white/50 backdrop-blur-xl flex items-center">
+                <div class="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white shadow-xl mr-4" aria-hidden="true"><i class="fas fa-robot text-xl"></i></div>
+                <div>
+                    <h3 class="font-extrabold text-xl text-slate-900 leading-tight">SemantiBot</h3>
+                    <p class="text-[10px] text-green-500 font-bold uppercase tracking-[0.25em] flex items-center">
+                        <span class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" aria-hidden="true"></span>AI ONLINE
+                    </p>
+                </div>
+            </div>
+            <div id="chat-container-full" class="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 custom-scrollbar flex flex-col bg-slate-50/20" aria-live="polite" aria-label="Mesaje conversație"></div>
+            <div class="p-6 bg-white/60 backdrop-blur-xl border-t border-slate-200/60">
+                <div class="relative max-w-5xl mx-auto flex items-center gap-3">
+                    <div class="ai-input-wrapper" style="flex:1">
+                        <input type="text" id="ai-input-full" onkeypress="if(event.key==='Enter')askAIFull()"
+                            placeholder="Întreabă orice despre Web Semantic..."
+                            class="w-full bg-white/80 border border-white/40 rounded-[1.7rem] px-7 py-5 outline-none transition-all text-slate-700 shadow-sm focus:ring-4 focus:ring-blue-100"
+                            aria-label="Introduceți întrebarea pentru SemantiBot">
+                    </div>
+                    <button onclick="askAIFull()" class="send-btn text-white w-16 h-16 rounded-2xl transition flex items-center justify-center shadow-2xl" aria-label="Trimite mesajul">
+                        <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROFIL SEMANTIC -->
+    <div id="tab-profile" class="tab-content hidden">
+        <h2 class="text-4xl font-extrabold mb-3 tracking-tight">Profilul Tău Semantic</h2>
+        <p class="text-slate-500 mb-8">Graful cunoașterii tale — conceptele asimilate și exportul în standarde semantice.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm text-center">
+                <div class="text-5xl font-extrabold text-blue-600 mb-2" id="profile-concepts-count">0</div>
+                <p class="text-sm font-bold text-slate-500 uppercase tracking-widest">Concepte asimilate</p>
+            </div>
+            <div class="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm text-center">
+                <div class="text-5xl font-extrabold text-green-600 mb-2" id="profile-modules-count">0/4</div>
+                <p class="text-sm font-bold text-slate-500 uppercase tracking-widest">Module finalizate</p>
+            </div>
+            <div class="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm text-center">
+                <div class="text-5xl font-extrabold text-purple-600 mb-2" id="profile-relations-count">0</div>
+                <p class="text-sm font-bold text-slate-500 uppercase tracking-widest">Relații semantice</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-extrabold text-slate-900 text-lg">Graf cunoaștere personală</h3>
+                <div class="flex gap-2">
+                    <button onclick="exportProfileTurtle()" class="px-4 py-2 text-xs font-bold text-green-600 border border-green-200 rounded-xl hover:bg-green-50 transition"><i class="fas fa-download mr-1" aria-hidden="true"></i>Export .ttl</button>
+                    <button onclick="exportProfileJsonLD()" class="px-4 py-2 text-xs font-bold text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-50 transition"><i class="fas fa-code mr-1" aria-hidden="true"></i>JSON-LD</button>
+                </div>
+            </div>
+            <div id="profile-graph-container" class="h-80 relative bg-slate-50 rounded-2xl overflow-hidden" role="img" aria-label="Graf personal de cunoaștere">
+                <div id="profile-graph-empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                    <i class="fas fa-user-graduate text-5xl mb-4 opacity-30" aria-hidden="true"></i>
+                    <p class="font-bold text-sm">Finalizează module pentru a-ți construi profilul semantic</p>
+                </div>
+                <div id="profile-d3-canvas"></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm mb-6">
+            <h3 class="font-extrabold text-slate-900 text-lg mb-4">Concepte Asimilate</h3>
+            <div id="profile-concepts-chips" class="flex flex-wrap gap-3" aria-live="polite" aria-label="Conceptele asimilate">
+                <p class="text-slate-400 text-sm italic">Niciun concept asimilat încă. Finalizează un modul!</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 rounded-[2rem] p-6">
+            <div class="flex gap-3 mb-4">
+                <button onclick="showProfileExport('ttl')"    class="px-4 py-2 text-xs font-bold text-green-400 border border-green-800 rounded-xl transition hover:bg-green-900/30">Turtle (.ttl)</button>
+                <button onclick="showProfileExport('jsonld')" class="px-4 py-2 text-xs font-bold text-blue-400 border border-blue-800 rounded-xl transition hover:bg-blue-900/30">JSON-LD</button>
+            </div>
+            <pre id="profile-export-preview" class="text-green-300 text-xs font-mono leading-relaxed overflow-x-auto max-h-60" aria-live="polite"># Finalizează module pentru a genera exportul semantic</pre>
+        </div>
+    </div>
+</main>
+
+<!-- MODAL LECȚIE -->
+<div id="study-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-xl" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-panel bg-white w-full max-w-5xl rounded-[3rem] max-h-[95vh] overflow-hidden flex flex-col shadow-2xl">
+        <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/80 backdrop-blur-xl">
+            <div>
+                <span id="modal-subtitle" class="text-[10px] font-bold text-blue-600 uppercase tracking-[0.35em]">Lecție</span>
+                <h3 id="modal-title" class="text-3xl font-extrabold text-slate-900 mt-2">Titlu</h3>
+            </div>
+            <button onclick="closeModal()" class="modal-close w-14 h-14 rounded-full flex items-center justify-center transition" aria-label="Închide fereastra de lecție">
+                <i class="fas fa-times text-slate-500" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div id="modal-body" class="p-8 md:p-12 overflow-y-auto custom-scrollbar flex-1" aria-live="polite"></div>
+        <div class="p-8 border-t border-slate-100 bg-white flex justify-between items-center">
+            <div id="modal-footer-info" class="text-sm font-bold text-slate-400 uppercase tracking-tight">Pasul 1</div>
+            <button onclick="nextStep()" id="modal-next-btn" class="continue-btn text-white px-10 py-4 rounded-2xl font-extrabold shadow-xl transition-all">Continuă</button>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
