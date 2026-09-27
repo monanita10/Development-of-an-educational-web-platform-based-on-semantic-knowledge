@@ -1340,7 +1340,7 @@ function switchTab(id) {
 
 //  AI CHATBOT 
 
-const GROQ_API_KEY = ;
+const GROQ_API_KEY = "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";
 let chatHistory = [];
 
 async function askAIFull() {
@@ -1370,7 +1370,7 @@ async function askAIFull() {
             method:"POST",
             headers:{ "Authorization":`Bearer ${GROQ_API_KEY}`, "Content-Type":"application/json" },
             body: JSON.stringify({
-                model:"llama-3.1-8b-instant",
+                model:"llama-3.3-70b-versatile",
                 messages:[
                     { role:"system", content:`Ești SemantiBot, asistentul AI al platformei educaționale SemantiLearn. Platforma predă Web Semantic, RDF, SPARQL, OWL și Linked Open Data studenților la master. Răspunde MEREU în limba română, cu explicații clare și exemple practice. Când explici triplete RDF, SPARQL sau OWL, oferă exemple de cod relevante. Fii prietenos, entuziast și pedagogic.` },
                     ...chatHistory
@@ -1458,4 +1458,36 @@ window.onload = () => {
     document.getElementById('daily-info-title').innerText = "Știai că?";
     document.getElementById('daily-info-text').innerText = randomFact;
 
+};
+
+// Funcție pentru deschiderea/închiderea meniului lateral pe mobil
+function toggleMobileMenu() {
+    const sidebar = document.getElementById('sidebar');
+    const icon = document.getElementById('hamburger-icon');
+    
+    sidebar.classList.toggle('mobile-open');
+    
+    // Schimbă pictograma din 3 linii (bars) în X când este deschis
+    if (sidebar.classList.contains('mobile-open')) {
+        icon.classList.remove('fa-bars');
+        icon.classList.add('fa-times');
+    } else {
+        icon.classList.remove('fa-times');
+        icon.classList.add('fa-bars');
+    }
+}
+
+// Opțional: Închide meniul automat pe mobil atunci când utilizatorul apasă pe un tab
+const originalSwitchTab = window.switchTab;
+window.switchTab = function(id) {
+    if (typeof originalSwitchTab === 'function') {
+        originalSwitchTab(id);
+    }
+    const sidebar = document.getElementById('sidebar');
+    const icon = document.getElementById('hamburger-icon');
+    if (window.innerWidth <= 1024 && sidebar.classList.contains('mobile-open')) {
+        sidebar.classList.remove('mobile-open');
+        icon.classList.remove('fa-times');
+        icon.classList.add('fa-bars');
+    }
 };
