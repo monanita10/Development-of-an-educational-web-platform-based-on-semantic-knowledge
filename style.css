@@ -721,21 +721,74 @@ button:active{
 }
 
 /* MOBILE */
-@media(max-width:1024px){
-
-    #tab-ai{
-        height: calc(100vh - 170px);
-        margin-top: 70px;
+@media (max-width: 1024px) {
+    #sidebar {
+        position: fixed;
+        top: 0;
+        left: -100%; /* Ascuns în stânga ecranului */
+        width: 80% !important;
+        max-width: 320px;
+        height: 100vh !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(24px);
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        padding: 2rem !important;
+        border-right: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 0 2rem 2rem 0 !important;
+        z-index: 99999;
+        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 20px 0 50px rgba(15, 23, 42, 0.2);
     }
 
-    #chat-container-full{
-        padding-top: 1rem;
+    /* Clasa care va afișa meniul când e activat din JS */
+    #sidebar.mobile-open {
+        left: 0 !important;
+    }
+
+    #sidebar > div:first-child {
+        display: block !important;
+    }
+
+    #sidebar .flex.items-center.space-x-3.mb-10 {
+        display: flex !important; /* Afișăm logo-ul în meniul lateral mobil */
+        margin-bottom: 2rem !important;
+    }
+
+    #sidebar nav {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.75rem !important;
+    }
+
+    #sidebar .nav-link {
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        height: auto !important;
+        padding: 1rem !important;
+        font-size: 0.9rem !important;
+        border-radius: 1rem !important;
+    }
+
+    #sidebar .nav-link span {
+        font-size: 0.9rem !important;
+    }
+
+    #sidebar .nav-link .fa-chevron-right {
+        display: block !important; /* Arptăm săgeata în meniul lateral */
+    }
+
+    /* Afișăm secțiunea de jos (progresul și butonul de reset) în meniulmobil */
+    #sidebar .mt-auto {
+        display: block !important;
+        margin-top: 2rem !important;
+    }
+
+    main {
+        margin-left: 0 !important;
+        padding-top: 1rem !important; /* Nu mai e nevoie de spațiu mare sus pentru bara veche */
+        padding-bottom: 2rem;
     }
 }
-
-    .send-btn{
-        width:58px;
-        height:58px;
-    }
 }
 }
