@@ -1370,7 +1370,7 @@ async function askAIFull() {
             method:"POST",
             headers:{ "Authorization":`Bearer ${GROQ_API_KEY}`, "Content-Type":"application/json" },
             body: JSON.stringify({
-                model: "meta-llama/llama-4-scout-17b-16e-instruct",
+                model: "openai/gpt-oss-20b",
                 messages:[
                     { role:"system", content:`Ești SemantiBot, asistentul AI al platformei educaționale SemantiLearn. Platforma predă Web Semantic, RDF, SPARQL, OWL și Linked Open Data studenților la master. Răspunde MEREU în limba română, cu explicații clare și exemple practice. Când explici triplete RDF, SPARQL sau OWL, oferă exemple de cod relevante. Fii prietenos, entuziast și pedagogic.` },
                     ...chatHistory
